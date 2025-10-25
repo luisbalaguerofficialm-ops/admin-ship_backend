@@ -1,0 +1,198 @@
+const Admin = require("../models/Admin");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const dotenv = require("dotenv");
+
+dotenv.config();
+
+/**
+ * @desc Register a new admin (SuperAdmin only — except the first one)
+ * @route POST /api/admin/register
+ * @access Public for first SuperAdmin, Private afterwards
+ */
+const registerAdmin = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    // Count existing admins
+    const adminCount = await Admin.countDocuments();
+
+    // ✅ First ever SuperAdmin (no token required)
+    if (adminCount === 0) {
+      const superAdmin = await Admin.create({
+        name,
+        email,
+        password, // pre-save hook will hash it
+        role: "SuperAdmin",
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Super Admin created successfully",
+        admin: {
+          id: superAdmin._id,
+          name: superAdmin.name,
+          email: superAdmin.email,
+          role: superAdmin.role,
+        },
+      });
+    }
+
+    // ✅ Only SuperAdmin can add new admins
+    if (!req.user || req.user.role !== "SuperAdmin") {
+      return res
+        .status(403)
+        .json({ message: "Access denied. SuperAdmin only." });
+    }
+
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin)
+      return res.status(400).json({ message: "Admin already exists" });
+
+    const newAdmin = await Admin.create({
+      name,
+      email,
+      password, // will be hashed automatically
+      role: role || "Admin",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Admin registered successfully",
+      admin: {
+        id: newAdmin._id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        role: newAdmin.role,
+      },
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * @desc Login admin
+ * @route POST /api/admin/login
+ * @access Public
+ */
+const loginAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password required" });
+
+    // Include password explicitly
+    const admin = await Admin.findOne({ email }).select("+password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    const isMatch = await admin.matchPassword(password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    // Update last login
+    admin.lastLogin = Date.now();
+    await admin.save();
+
+    const token = jwt.sign(
+      { id: admin._id, email: admin.email, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * @desc Get admin profile
+ * @route GET /api/admin/profile
+ * @access Private
+ */
+const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.user.id).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    res.status(200).json({ success: true, admin });
+  } catch (err) {
+    console.error("Profile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * @desc Reset admin password
+ * @route PUT /api/admin/reset-password
+ * @access Private
+ */
+const resetAdminPassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const admin = await Admin.findById(req.user.id).select("+password");
+
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    const isMatch = await admin.matchPassword(oldPassword);
+    if (!isMatch)
+      return res.status(400).json({ message: "Old password incorrect" });
+
+    admin.password = newPassword; // will be hashed by pre-save
+    await admin.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * @desc Delete admin account (SuperAdmin only)
+ * @route DELETE /api/admin/:id
+ * @access Private (SuperAdmin)
+ */
+const deleteAdminAccount = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "SuperAdmin") {
+      return res
+        .status(403)
+        .json({ message: "Access denied. SuperAdmin only." });
+    }
+
+    const admin = await Admin.findByIdAndDelete(req.params.id);
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Admin account deleted successfully" });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  registerAdmin,
+  loginAdmin,
+  getAdminProfile,
+  resetAdminPassword,
+  deleteAdminAccount,
+};
