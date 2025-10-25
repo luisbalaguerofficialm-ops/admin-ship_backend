@@ -136,27 +136,40 @@ const getAdminProfile = async (req, res) => {
 };
 
 /**
- * @desc Reset admin password
- * @route PUT /api/admin/reset-password
- * @access Private
+ * @desc Reset admin password (via reset token)
+ * @route PUT /api/admin/reset-password/:token
+ * @access Public
  */
 const resetAdminPassword = async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    const admin = await Admin.findById(req.user.id).select("+password");
+    const { token } = req.params;
+    const { newPassword } = req.body;
 
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    if (!token) {
+      return res.status(400).json({ message: "Reset token is required" });
+    }
 
-    const isMatch = await admin.matchPassword(oldPassword);
-    if (!isMatch)
-      return res.status(400).json({ message: "Old password incorrect" });
+    // Decode and verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
 
-    admin.password = newPassword; // will be hashed by pre-save
+    // Find admin by ID from decoded token
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Update password
+    admin.password = newPassword; // hashed by pre-save hook
     await admin.save();
 
     res.status(200).json({
       success: true,
-      message: "Password updated successfully",
+      message: "Password reset successfully",
     });
   } catch (err) {
     console.error("Reset password error:", err);
