@@ -10,18 +10,23 @@ const Notification = require("../models/Notification");
 const checkSuperAdmin = async (req, res) => {
   try {
     const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
-    res.json({
+
+    res.status(200).json({
       success: true,
-      exists: !!superAdminExists,
+      superAdminExists: !!superAdminExists,
+      message: superAdminExists
+        ? "Super Admin already exists. Please log in first — once logged in, you can register new admins from the Users page."
+        : "No Super Admin found. You can register the first Super Admin.",
     });
   } catch (err) {
     console.error("Check SuperAdmin Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to check Super Admin" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to check Super Admin",
+    });
   }
 };
-
+s;
 // ========== DASHBOARD STATS ==========
 const getDashboardStats = async (req, res) => {
   try {
