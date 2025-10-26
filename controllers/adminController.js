@@ -6,6 +6,22 @@ const User = require("../models/User");
 const Customer = require("../models/Customer");
 const Notification = require("../models/Notification");
 
+// ========== CHECK SUPER ADMIN ==========
+const checkSuperAdmin = async (req, res) => {
+  try {
+    const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
+    res.json({
+      success: true,
+      exists: !!superAdminExists,
+    });
+  } catch (err) {
+    console.error("Check SuperAdmin Error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to check Super Admin" });
+  }
+};
+
 // ========== DASHBOARD STATS ==========
 const getDashboardStats = async (req, res) => {
   try {
@@ -96,6 +112,7 @@ const getAdminNotifications = async (req, res) => {
 };
 
 module.exports = {
+  checkSuperAdmin, // ✅ newly added
   getDashboardStats,
   getAdminProfile,
   updateAdminProfile,

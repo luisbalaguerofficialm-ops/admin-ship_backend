@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -13,39 +14,45 @@ const authAdminRoutes = require("./routes/authAdminRoutes");
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// ===== Middleware =====
+app.use(cors({ origin: "*", credentials: true })); // Allow frontend to connect
 app.use(express.json());
 
-// Default route
+// ===== Default Route =====
 app.get("/", (req, res) => {
-  res.send("Shipment Admin API is running...");
+  res.status(200).send("✅ Shipment Admin API is running...");
+});
+
+// ===== API Routes =====
+app.use("/api/shipments", shipmentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/admin", authAdminRoutes); // Handles super admin registration, login, etc.
+
+// ===== 404 Fallback (Prevents HTML error pages) =====
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
 });
 
 const port = process.env.PORT || 4000;
 
-// API Routes
-app.use("/api/shipments", shipmentRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/admin", authAdminRoutes); // handles super admin registration, login, etc.
-
+// ===== Connect to MongoDB & Start Server =====
 const start = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URL);
-
-    console.log("Database connected");
+    await mongoose.connect(process.env.MONGO_URL, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ Database connected successfully");
 
     app.listen(port, () => {
-      console.log(`Server is running on PORT ${port}`);
+      console.log(`🚀 Server running on port ${port}`);
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Database connection error:", err.message);
+    process.exit(1);
   }
 };
 
 start();
-module.exports = app;
 
-// MONGO_URL=mongodb+srv://sofiavergaravertical_db_user:BUZzXk9T9DI0u8bE@cluster0.ylngraf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
-// PORT=4000
-// JWT_SECRET=holy_forever_is-thy_sandwiches_1276
+module.exports = app;
