@@ -1,3 +1,4 @@
+// controllers/authAdminController.js
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -17,12 +18,12 @@ const registerAdmin = async (req, res) => {
     // Count existing admins
     const adminCount = await Admin.countDocuments();
 
-    // ✅ First ever SuperAdmin (no token required)
+    // ✅ First SuperAdmin (no token required)
     if (adminCount === 0) {
       const superAdmin = await Admin.create({
         name,
         email,
-        password, // pre-save hook will hash it
+        password, // pre-save hook will hash
         role: "SuperAdmin",
       });
 
@@ -38,13 +39,14 @@ const registerAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Only SuperAdmin can add new admins
+    // ✅ Only SuperAdmin can create more admins
     if (!req.user || req.user.role !== "SuperAdmin") {
       return res
         .status(403)
         .json({ message: "Access denied. SuperAdmin only." });
     }
 
+    // Prevent duplicates
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin)
       return res.status(400).json({ message: "Admin already exists" });
@@ -52,7 +54,7 @@ const registerAdmin = async (req, res) => {
     const newAdmin = await Admin.create({
       name,
       email,
-      password, // will be hashed automatically
+      password, // hashed in model pre-save
       role: role || "Admin",
     });
 
@@ -77,21 +79,42 @@ const registerAdmin = async (req, res) => {
  * @route POST /api/admin/login
  * @access Public
  */
+
+// ✅ Check if a SuperAdmin exists
+const checkSuperAdmin = async (req, res) => {
+  try {
+    const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
+
+    res.status(200).json({
+      success: true,
+      superAdminExists: !!superAdminExists,
+      message: superAdminExists
+        ? "SuperAdmin already exists. Use /register-admin with token to add new admins."
+        : "No SuperAdmin found. You can register the first SuperAdmin.",
+    });
+  } catch (err) {
+    console.error("Check SuperAdmin Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check Super Admin",
+    });
+  }
+};
+
 const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
 
-    // Include password explicitly
     const admin = await Admin.findOne({ email }).select("+password");
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    if (!admin) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await admin.matchPassword(password);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
 
-    // Update last login
+    // Update last login time
     admin.lastLogin = Date.now();
     await admin.save();
 
@@ -136,7 +159,7 @@ const getAdminProfile = async (req, res) => {
 };
 
 /**
- * @desc Reset admin password (via reset token)
+ * @desc Reset admin password (using a reset token)
  * @route PUT /api/admin/reset-password/:token
  * @access Public
  */
@@ -145,11 +168,9 @@ const resetAdminPassword = async (req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
 
-    if (!token) {
+    if (!token)
       return res.status(400).json({ message: "Reset token is required" });
-    }
 
-    // Decode and verify token
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -157,20 +178,15 @@ const resetAdminPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    // Find admin by ID from decoded token
     const admin = await Admin.findById(decoded.id);
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    // Update password
-    admin.password = newPassword; // hashed by pre-save hook
+    admin.password = newPassword; // pre-save hook hashes this
     await admin.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Password reset successfully",
-    });
+    res
+      .status(200)
+      .json({ success: true, message: "Password reset successfully" });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Server error" });
@@ -208,4 +224,5 @@ module.exports = {
   getAdminProfile,
   resetAdminPassword,
   deleteAdminAccount,
+  checkSuperAdmin,
 };

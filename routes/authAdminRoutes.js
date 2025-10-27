@@ -5,6 +5,7 @@ const {
   getAdminProfile,
   resetAdminPassword,
   deleteAdminAccount,
+  checkSuperAdmin, // ✅ Import this from controller
 } = require("../controllers/authAdminController");
 
 const Admin = require("../models/Admin");
@@ -12,6 +13,13 @@ const { protectAdmin } = require("../middlewares/authMiddleware");
 const { authorizeRole } = require("../middlewares/authorizeRole");
 
 const router = express.Router();
+
+/**
+ * @desc Check if a SuperAdmin already exists
+ * @route GET /api/admin/check-superadmin
+ * @access Public
+ */
+router.get("/check-superadmin", checkSuperAdmin); // ✅ Added this route
 
 /**
  * @desc Register first SuperAdmin (public)
