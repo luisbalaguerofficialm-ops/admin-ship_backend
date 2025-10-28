@@ -7,16 +7,17 @@ const dotenv = require("dotenv");
 // Load environment variables
 dotenv.config();
 
-// Import routes
-const shipmentRoutes = require("./routes/shipmentRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-const authAdminRoutes = require("./routes/authAdminRoutes");
-
 const app = express();
 
 // ===== Middleware =====
-app.use(cors({ origin: "*", credentials: true })); // Allow frontend to connect
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
+
+// ===== Import routes =====
+const shipmentRoutes = require("./routes/shipmentRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const authAdminRoutes = require("./routes/authAdminRoutes");
 
 // ===== Default Route =====
 app.get("/", (req, res) => {
@@ -24,11 +25,19 @@ app.get("/", (req, res) => {
 });
 
 // ===== API Routes =====
+// Shipment management
 app.use("/api/shipments", shipmentRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/admin", authAdminRoutes); // Handles super admin registration, login, etc.
 
-// ===== 404 Fallback (Prevents HTML error pages) =====
+// Dashboard data
+app.use("/api/dashboard", dashboardRoutes);
+
+// Admin account management (includes check-superadmin & register)
+app.use("/api/admin", adminRoutes);
+
+// Authentication routes (login, profile, reset password, etc.)
+app.use("/api/auth", authAdminRoutes);
+
+// ===== 404 Fallback =====
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
@@ -42,6 +51,7 @@ const start = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
+
     console.log("✅ Database connected successfully");
 
     app.listen(port, () => {

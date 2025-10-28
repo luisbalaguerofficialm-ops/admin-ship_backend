@@ -1,4 +1,3 @@
-// controllers/authAdminController.js
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -75,12 +74,10 @@ const registerAdmin = async (req, res) => {
 };
 
 /**
- * @desc Login admin
- * @route POST /api/admin/login
+ * @desc Check if a SuperAdmin exists
+ * @route GET /api/admin/check-superadmin
  * @access Public
  */
-
-// ✅ Check if a SuperAdmin exists
 const checkSuperAdmin = async (req, res) => {
   try {
     const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
@@ -89,18 +86,23 @@ const checkSuperAdmin = async (req, res) => {
       success: true,
       superAdminExists: !!superAdminExists,
       message: superAdminExists
-        ? "SuperAdmin already exists. Use /register-admin with token to add new admins."
+        ? "SuperAdmin already exists. Use /register with token to add new admins."
         : "No SuperAdmin found. You can register the first SuperAdmin.",
     });
   } catch (err) {
     console.error("Check SuperAdmin Error:", err);
     res.status(500).json({
       success: false,
-      message: "Failed to check Super Admin",
+      message: "Failed to check SuperAdmin",
     });
   }
 };
 
+/**
+ * @desc Login admin
+ * @route POST /api/admin/login
+ * @access Public
+ */
 const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -142,24 +144,7 @@ const loginAdmin = async (req, res) => {
 };
 
 /**
- * @desc Get admin profile
- * @route GET /api/admin/profile
- * @access Private
- */
-const getAdminProfile = async (req, res) => {
-  try {
-    const admin = await Admin.findById(req.user.id).select("-password");
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
-
-    res.status(200).json({ success: true, admin });
-  } catch (err) {
-    console.error("Profile error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-/**
- * @desc Reset admin password (using a reset token)
+ * @desc Reset admin password (via token)
  * @route PUT /api/admin/reset-password/:token
  * @access Public
  */
@@ -181,12 +166,13 @@ const resetAdminPassword = async (req, res) => {
     const admin = await Admin.findById(decoded.id);
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    admin.password = newPassword; // pre-save hook hashes this
+    admin.password = newPassword; // pre-save hook hashes it
     await admin.save();
 
-    res
-      .status(200)
-      .json({ success: true, message: "Password reset successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+    });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Server error" });
@@ -209,9 +195,10 @@ const deleteAdminAccount = async (req, res) => {
     const admin = await Admin.findByIdAndDelete(req.params.id);
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    res
-      .status(200)
-      .json({ success: true, message: "Admin account deleted successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Admin account deleted successfully",
+    });
   } catch (err) {
     console.error("Delete account error:", err);
     res.status(500).json({ message: "Server error" });
@@ -221,7 +208,6 @@ const deleteAdminAccount = async (req, res) => {
 module.exports = {
   registerAdmin,
   loginAdmin,
-  getAdminProfile,
   resetAdminPassword,
   deleteAdminAccount,
   checkSuperAdmin,

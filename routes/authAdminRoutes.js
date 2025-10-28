@@ -1,49 +1,63 @@
+// routes/adminRoutes.js
 const express = require("express");
+const router = express.Router();
+
+// ✅ Controllers
 const {
   registerAdmin,
   loginAdmin,
-  getAdminProfile,
   resetAdminPassword,
   deleteAdminAccount,
-  checkSuperAdmin, // ✅ Import this from controller
-} = require("../controllers/authAdminController");
+  checkSuperAdmin,
+} = require("../controllers/authAdminController"); // Authentication & account logic
 
-const Admin = require("../models/Admin");
+const {
+  getAdminProfile,
+  updateAdminProfile,
+  getAdmins,
+  updateAdmin,
+  deleteAdmin,
+  getDashboardStats,
+  getAdminNotifications,
+} = require("../controllers/adminController"); // Admin management & stats
+
+// ✅ Middlewares
 const { protectAdmin } = require("../middlewares/authMiddleware");
 const { authorizeRole } = require("../middlewares/authorizeRole");
 
-const router = express.Router();
+// ✅ Models
+const Admin = require("../models/Admin");
 
-/**
- * @desc Check if a SuperAdmin already exists
- * @route GET /api/admin/check-superadmin
- * @access Public
- */
-router.get("/check-superadmin", checkSuperAdmin); // ✅ Added this route
+// =====================================
+// 🔍 SUPER ADMIN CHECK
+// =====================================
+router.get("/check-superadmin", checkSuperAdmin);
 
-/**
- * @desc Register first SuperAdmin (public)
- *       Subsequent ones must use /register-admin with token
- * @route POST /api/admin/register
- */
+// =====================================
+// 🔐 AUTHENTICATION ROUTES
+// =====================================
+
+// ✅ Register first SuperAdmin
 router.post("/register", async (req, res) => {
   try {
     const adminCount = await Admin.countDocuments();
-    if (adminCount === 0) return registerAdmin(req, res);
+
+    if (adminCount === 0) {
+      // Allow first SuperAdmin registration
+      return registerAdmin(req, res);
+    }
+
     res.status(403).json({
       message:
-        "SuperAdmin already exists. Use /register-admin with token to add new admins.",
+        "SuperAdmin already exists. Use /register-admin with SuperAdmin token to add new admins.",
     });
   } catch (err) {
-    console.error("Registration route error:", err);
+    console.error("Error checking SuperAdmin existence:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/**
- * @desc Register new admin (SuperAdmin only)
- * @route POST /api/admin/register-admin
- */
+// ✅ Register new admin (SuperAdmin only)
 router.post(
   "/register-admin",
   protectAdmin,
@@ -51,33 +65,42 @@ router.post(
   registerAdmin
 );
 
-/**
- * @desc Login admin
- * @route POST /api/admin/login
- */
+// ✅ Admin login
 router.post("/login", loginAdmin);
 
-/**
- * @desc Get admin profile
- * @route GET /api/admin/profile
- */
-router.get("/profile", protectAdmin, getAdminProfile);
-
-/**
- * @desc Reset password
- * @route PUT /api/admin/reset-password
- */
+// ✅ Reset password (logged-in admins)
 router.put("/reset-password", protectAdmin, resetAdminPassword);
 
-/**
- * @desc Delete admin account (SuperAdmin only)
- * @route DELETE /api/admin/:id
- */
+// =====================================
+// 👤 ADMIN PROFILE
+// =====================================
+router.get("/profile", protectAdmin, getAdminProfile);
+router.put("/profile", protectAdmin, updateAdminProfile);
+
+// =====================================
+// 🧭 ADMIN MANAGEMENT (SuperAdmin only)
+// =====================================
+router.get("/", protectAdmin, authorizeRole("SuperAdmin"), getAdmins);
+router.put("/:id", protectAdmin, authorizeRole("SuperAdmin"), updateAdmin);
+router.delete("/:id", protectAdmin, authorizeRole("SuperAdmin"), deleteAdmin);
+
+// =====================================
+// 📊 DASHBOARD & 🔔 NOTIFICATIONS
+// =====================================
+router.get("/dashboard", protectAdmin, getDashboardStats);
+router.get("/notifications", protectAdmin, getAdminNotifications);
+
+// =====================================
+// 🧹 DELETE OWN ACCOUNT (SuperAdmin only)
+// =====================================
 router.delete(
-  "/:id",
+  "/delete-account/:id",
   protectAdmin,
   authorizeRole("SuperAdmin"),
   deleteAdminAccount
 );
 
+// =====================================
+// ✅ EXPORT ROUTER
+// =====================================
 module.exports = router;

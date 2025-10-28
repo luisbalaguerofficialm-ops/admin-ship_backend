@@ -1,4 +1,3 @@
-// controllers/adminController.js
 const Admin = require("../models/Admin");
 const Shipment = require("../models/Shipment");
 const Payment = require("../models/Payment");
@@ -26,7 +25,63 @@ const checkSuperAdmin = async (req, res) => {
     });
   }
 };
-s;
+
+// ========== GET ALL ADMINS ==========
+const getAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find().select("-password");
+    res.status(200).json({ success: true, admins });
+  } catch (error) {
+    console.error("Error fetching admins:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ========== UPDATE ADMIN ==========
+const updateAdmin = async (req, res) => {
+  try {
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+      }
+    ).select("-password");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Admin updated successfully",
+      admin: updatedAdmin,
+    });
+  } catch (error) {
+    console.error("Error updating admin:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ========== DELETE ADMIN ==========
+const deleteAdmin = async (req, res) => {
+  try {
+    const deletedAdmin = await Admin.findByIdAndDelete(req.params.id);
+
+    if (!deletedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Admin deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting admin:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ========== DASHBOARD STATS ==========
 const getDashboardStats = async (req, res) => {
   try {
@@ -117,7 +172,10 @@ const getAdminNotifications = async (req, res) => {
 };
 
 module.exports = {
-  checkSuperAdmin, // ✅ newly added
+  checkSuperAdmin,
+  getAdmins,
+  updateAdmin,
+  deleteAdmin,
   getDashboardStats,
   getAdminProfile,
   updateAdminProfile,

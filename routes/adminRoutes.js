@@ -1,63 +1,90 @@
 // routes/adminRoutes.js
-import express from "express";
-import {
+const express = require("express");
+const router = express.Router();
+const Admin = require("../models/Admin");
+
+// ============================
+// 🧠 CONTROLLERS
+// ============================
+const {
   registerAdmin,
   loginAdmin,
+} = require("../controllers/authAdminController");
+
+const {
+  checkSuperAdmin,
   getAdmins,
   updateAdmin,
   deleteAdmin,
-} from "../controllers/authAdminController.js";
-import Admin from "../models/Admin.js";
-import { verifyToken, authorizeRoles } from "../middleware/authMiddleware.js";
+  getDashboardStats,
+  getAdminProfile,
+  updateAdminProfile,
+  getAdminNotifications,
+} = require("../controllers/adminController");
 
-const router = express.Router();
+// ============================
+// 🛡️ MIDDLEWARES
+// ============================
+const {
+  protectAdmin,
+  authorizeRole,
+} = require("../middlewares/authMiddleware");
 
-/**
- * ✅ Check if a SuperAdmin already exists
- */
-router.get("/check-superadmin", async (req, res) => {
+// 🔍 SUPER ADMIN CHECK
+// ============================
+router.get("/check-superadmin", checkSuperAdmin);
+
+// ============================
+// 🔐 AUTHENTICATION ROUTES
+// ============================
+
+// ✅ Register new admin (first one freely, others by SuperAdmin)
+router.post("/register", async (req, res, next) => {
   try {
     const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
-    return res.status(200).json({ superAdminExists: !!superAdminExists });
-  } catch (error) {
-    console.error("Error checking SuperAdmin:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-});
 
-/**
- * ✅ Register a new admin
- * - If a SuperAdmin exists, only that role can create new admins
- */
-router.post("/register", async (req, res) => {
-  try {
-    const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
-
-    if (superAdminExists) {
-      return verifyToken(req, res, async () => {
-        await authorizeRoles("SuperAdmin")(req, res, async () => {
-          await registerAdmin(req, res);
-        });
-      });
-    } else {
-      await registerAdmin(req, res);
+    // Allow the first SuperAdmin to register freely
+    if (!superAdminExists) {
+      return registerAdmin(req, res);
     }
+
+    // Otherwise require SuperAdmin auth
+    protectAdmin(req, res, async (err) => {
+      if (err) return next(err);
+      authorizeRole("SuperAdmin")(req, res, async (err) => {
+        if (err) return next(err);
+        await registerAdmin(req, res);
+      });
+    });
   } catch (error) {
-    console.error("Error in /register:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Error in /register route:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
-/**
- * ✅ Login admin
- */
+// ✅ Admin login
 router.post("/login", loginAdmin);
 
-/**
- * ✅ Manage admins (SuperAdmin only)
- */
-router.get("/", verifyToken, authorizeRoles("SuperAdmin"), getAdmins);
-router.put("/:id", verifyToken, authorizeRoles("SuperAdmin"), updateAdmin);
-router.delete("/:id", verifyToken, authorizeRoles("SuperAdmin"), deleteAdmin);
+// ============================
+// 👥 ADMIN MANAGEMENT (SuperAdmin only)
+// ============================
+router.get("/", protectAdmin, authorizeRole("SuperAdmin"), getAdmins);
+router.put("/:id", protectAdmin, authorizeRole("SuperAdmin"), updateAdmin);
+router.delete("/:id", protectAdmin, authorizeRole("SuperAdmin"), deleteAdmin);
 
-export default router;
+// ============================
+// 📊 DASHBOARD & PROFILE
+// ============================
+router.get("/dashboard", protectAdmin, getDashboardStats);
+router.get("/profile", protectAdmin, getAdminProfile);
+router.put("/profile", protectAdmin, updateAdminProfile);
+
+// ============================
+// 🔔 NOTIFICATIONS
+// ============================
+router.get("/notifications", protectAdmin, getAdminNotifications);
+
+// ============================
+// ✅ EXPORT ROUTER
+// ============================
+module.exports = router;
