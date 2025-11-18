@@ -1,5 +1,5 @@
-// controllers/shipmentController.js
 const Shipment = require("../models/Shipment");
+const emitDashboardStats = require("../utils/dashboardEmitter");
 
 /**
  * @desc Create a new shipment
@@ -7,12 +7,16 @@ const Shipment = require("../models/Shipment");
  * @access Private (Admin or Super Admin)
  */
 exports.createShipment = async (req, res) => {
+  const io = req.app.get("io"); // Socket.IO instance
+
   try {
-    // Automatically assign the admin who created the shipment
     const shipment = await Shipment.create({
       ...req.body,
       createdBy: req.user.id,
     });
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(io);
 
     res.status(201).json({
       success: true,
@@ -31,20 +35,17 @@ exports.createShipment = async (req, res) => {
  * @desc Get all shipments
  * @route GET /api/shipments
  * @access Private
- * - Admins see only their own shipments
- * - Super Admin sees all
  */
 exports.getShipments = async (req, res) => {
   try {
     let query = {};
 
-    // Regular Admins only see their own shipments
     if (req.user.role !== "SuperAdmin") {
       query = { createdBy: req.user.id };
     }
 
     const shipments = await Shipment.find(query)
-      .populate("createdBy", "name email role") // show admin info
+      .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.json({ success: true, shipments });
@@ -67,10 +68,10 @@ exports.getShipmentById = async (req, res) => {
       "createdBy",
       "name email role"
     );
+
     if (!shipment)
       return res.status(404).json({ message: "Shipment not found" });
 
-    // Restrict access for regular admins
     if (
       req.user.role !== "SuperAdmin" &&
       shipment.createdBy._id.toString() !== req.user.id
@@ -90,15 +91,16 @@ exports.getShipmentById = async (req, res) => {
 /**
  * @desc Update shipment
  * @route PUT /api/shipments/:id
- * @access Private (Owner or Super Admin)
+ * @access Private
  */
 exports.updateShipment = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     const shipment = await Shipment.findById(req.params.id);
     if (!shipment)
       return res.status(404).json({ message: "Shipment not found" });
 
-    // Only the creator or Super Admin can update
     if (
       req.user.role !== "SuperAdmin" &&
       shipment.createdBy.toString() !== req.user.id
@@ -113,6 +115,9 @@ exports.updateShipment = async (req, res) => {
       req.body,
       { new: true }
     );
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(io);
 
     res.json({
       success: true,
@@ -133,6 +138,8 @@ exports.updateShipment = async (req, res) => {
  * @access Private (Super Admin only)
  */
 exports.deleteShipment = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     if (req.user.role !== "SuperAdmin") {
       return res
@@ -143,6 +150,9 @@ exports.deleteShipment = async (req, res) => {
     const deletedShipment = await Shipment.findByIdAndDelete(req.params.id);
     if (!deletedShipment)
       return res.status(404).json({ message: "Shipment not found" });
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(io);
 
     res.json({
       success: true,

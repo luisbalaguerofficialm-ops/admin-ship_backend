@@ -1,5 +1,5 @@
-// controllers/userController.js
 import User from "../models/User.js";
+import emitDashboardStats from "../utils/dashboardEmitter.js";
 
 // Get all users
 export const getUsers = async (req, res) => {
@@ -24,10 +24,16 @@ export const getUserById = async (req, res) => {
 
 // Update user
 export const updateUser = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     }).select("-password");
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(io);
+
     res.json({ success: true, user: updatedUser });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to update user" });
@@ -36,8 +42,14 @@ export const updateUser = async (req, res) => {
 
 // Delete user
 export const deleteUser = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     await User.findByIdAndDelete(req.params.id);
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(io);
+
     res.json({ success: true, message: "User deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to delete user" });

@@ -3,11 +3,34 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const http = require("http");
+const { Server } = require("socket.io");
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+
+// ====== Socket.IO Setup ======
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+// Make Socket.IO available inside routes
+app.set("io", io);
+
+// Socket.IO events — optional log
+io.on("connection", (socket) => {
+  console.log("🔥 Admin Dashboard Connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ Admin Dashboard Disconnected:", socket.id);
+  });
+});
 
 // ===== Middleware =====
 app.use(cors({ origin: "*", credentials: true }));
@@ -25,16 +48,9 @@ app.get("/", (req, res) => {
 });
 
 // ===== API Routes =====
-// Shipment management
 app.use("/api/shipments", shipmentRoutes);
-
-// Dashboard data
 app.use("/api/dashboard", dashboardRoutes);
-
-// Admin account management (includes check-superadmin & register)
 app.use("/api/admin", adminRoutes);
-
-// Authentication routes (login, profile, reset password, etc.)
 app.use("/api/auth", authAdminRoutes);
 
 // ===== 404 Fallback =====
@@ -47,15 +63,13 @@ const port = process.env.PORT || 4000;
 // ===== Connect to MongoDB & Start Server =====
 const start = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URL, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGO_URL, {});
 
-    console.log("✅ Database connected successfully");
+    console.log(" Database connected successfully");
 
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
+      console.log("🔌 Socket.IO is active...");
     });
   } catch (err) {
     console.error("❌ Database connection error:", err.message);

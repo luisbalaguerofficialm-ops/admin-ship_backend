@@ -1,17 +1,22 @@
-// controllers/paymentController.js
 import Payment from "../models/Payment.js";
 import Shipment from "../models/Shipment.js";
+import emitDashboardStats from "../utils/dashboardEmitter.js";
 
 // Record new payment
 export const createPayment = async (req, res) => {
   try {
     const payment = await Payment.create(req.body);
+
     // Optionally mark shipment as paid
     if (payment.shipmentId) {
       await Shipment.findByIdAndUpdate(payment.shipmentId, {
         paymentStatus: "Paid",
       });
     }
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(req.app.get("io"));
+
     res.status(201).json({ success: true, payment });
   } catch (err) {
     res
@@ -53,6 +58,10 @@ export const updatePayment = async (req, res) => {
     const updated = await Payment.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(req.app.get("io"));
+
     res.json({ success: true, payment: updated });
   } catch (err) {
     res
@@ -65,6 +74,10 @@ export const updatePayment = async (req, res) => {
 export const deletePayment = async (req, res) => {
   try {
     await Payment.findByIdAndDelete(req.params.id);
+
+    // 🔥 Emit dashboard update
+    emitDashboardStats(req.app.get("io"));
+
     res.json({ success: true, message: "Payment deleted" });
   } catch (err) {
     res

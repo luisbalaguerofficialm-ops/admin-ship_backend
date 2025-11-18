@@ -21,7 +21,7 @@ const protectAdmin = async (req, res, next) => {
       return res.status(401).json({ message: "Admin not found" });
     }
 
-    req.user = admin; // 👈 Attach the admin to the request
+    req.user = admin; //  Attach the admin to the request
     next();
   } catch (err) {
     console.error("Auth middleware error:", err.message);
@@ -30,7 +30,7 @@ const protectAdmin = async (req, res, next) => {
 };
 
 /**
- * ✅ Restrict access based on roles (e.g., SuperAdmin)
+ *  Restrict access based on roles (e.g., SuperAdmin)
  */
 const authorizeRole = (...allowedRoles) => {
   return (req, res, next) => {
@@ -43,5 +43,5 @@ const authorizeRole = (...allowedRoles) => {
   };
 };
 
-// ✅ Correct export syntax
+//  Correct export syntax
 module.exports = { protectAdmin, authorizeRole };

@@ -9,10 +9,43 @@ import {
 
 const router = express.Router();
 
-router.post("/", createPayment);
+// Create Payment → emit event
+router.post("/", async (req, res, next) => {
+  try {
+    await createPayment(req, res);
+    const io = req.app.get("io");
+    if (io) io.emit("paymentsUpdated");
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get all payments
 router.get("/", getPayments);
+
+// Get payment by ID
 router.get("/:id", getPaymentById);
-router.put("/:id", updatePayment);
-router.delete("/:id", deletePayment);
+
+// Update Payment → emit event
+router.put("/:id", async (req, res, next) => {
+  try {
+    await updatePayment(req, res);
+    const io = req.app.get("io");
+    if (io) io.emit("paymentsUpdated");
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete Payment → emit event
+router.delete("/:id", async (req, res, next) => {
+  try {
+    await deletePayment(req, res);
+    const io = req.app.get("io");
+    if (io) io.emit("paymentsUpdated");
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;
