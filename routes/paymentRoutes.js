@@ -1,15 +1,15 @@
-import express from "express";
-import {
+const express = require("express");
+const router = express.Router();
+
+const {
   createPayment,
   getPayments,
   getPaymentById,
   updatePayment,
   deletePayment,
-} from "../controllers/paymentController.js";
+} = require("../controllers/paymentController");
 
-const router = express.Router();
-
-// Create Payment → emit event
+// ===== CREATE PAYMENT =====
 router.post("/", async (req, res, next) => {
   try {
     await createPayment(req, res);
@@ -20,13 +20,13 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// Get all payments
+// ===== GET ALL PAYMENTS =====
 router.get("/", getPayments);
 
-// Get payment by ID
+// ===== GET PAYMENT BY ID =====
 router.get("/:id", getPaymentById);
 
-// Update Payment → emit event
+// ===== UPDATE PAYMENT =====
 router.put("/:id", async (req, res, next) => {
   try {
     await updatePayment(req, res);
@@ -37,7 +37,7 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-// Delete Payment → emit event
+// ===== DELETE PAYMENT =====
 router.delete("/:id", async (req, res, next) => {
   try {
     await deletePayment(req, res);
@@ -48,4 +48,4 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
-export default router;
+module.exports = router;

@@ -1,14 +1,48 @@
-import express from "express";
-import {
+const express = require("express");
+const router = express.Router();
+
+const {
   sendMessage,
   getMessages,
   markAsRead,
-} from "../controllers/messageController.js";
+  deleteMessage,
+} = require("../controllers/messageController");
 
-const router = express.Router();
+const {
+  protectAdmin,
+  authorizeRole,
+} = require("../middlewares/authMiddleware");
 
-router.post("/", sendMessage);
-router.get("/", getMessages);
-router.put("/:id/read", markAsRead);
+// Send message
+router.post(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  sendMessage
+);
 
-export default router;
+// Get messages
+router.get(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getMessages
+);
+
+// Mark as read
+router.put(
+  "/:id/read",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  markAsRead
+);
+
+// Delete message
+router.delete(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  deleteMessage
+);
+
+module.exports = router;

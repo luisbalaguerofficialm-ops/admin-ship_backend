@@ -1,18 +1,50 @@
-import express from "express";
-import {
+// routes/customerRoutes.js
+const express = require("express");
+const router = express.Router();
+
+const {
   createCustomer,
   getCustomers,
   getCustomerById,
   updateCustomer,
   deleteCustomer,
-} from "../controllers/customerController.js";
+} = require("../controllers/customerController");
 
-const router = express.Router();
+const {
+  protectAdmin,
+  authorizeRole,
+} = require("../middlewares/authMiddleware");
 
-router.post("/", createCustomer);
-router.get("/", getCustomers);
-router.get("/:id", getCustomerById);
-router.put("/:id", updateCustomer);
-router.delete("/:id", deleteCustomer);
+// ===== CUSTOMER ROUTES =====
+router.post(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  createCustomer
+);
+router.get(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getCustomers
+);
+router.get(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getCustomerById
+);
+router.put(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  updateCustomer
+);
+router.delete(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  deleteCustomer
+);
 
-export default router;
+module.exports = router;

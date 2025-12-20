@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+// Import controllers
 const {
   createShipment,
   getShipments,
@@ -9,43 +10,42 @@ const {
   deleteShipment,
 } = require("../controllers/shipmentController");
 
-// Create Shipment → emit event
-router.post("/", async (req, res, next) => {
-  try {
-    await createShipment(req, res);
-    const io = req.app.get("io");
-    if (io) io.emit("shipmentsUpdated");
-  } catch (err) {
-    next(err);
-  }
-});
+// Import middlewares
+const {
+  protectAdmin,
+  authorizeRole,
+} = require("../middlewares/authMiddleware");
 
-// Get all Shipments
-router.get("/", getShipments);
-
-// Get Shipment by ID
-router.get("/:id", getShipmentById);
-
-// Update Shipment → emit event
-router.put("/:id", async (req, res, next) => {
-  try {
-    await updateShipment(req, res);
-    const io = req.app.get("io");
-    if (io) io.emit("shipmentsUpdated");
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Delete Shipment → emit event
-router.delete("/:id", async (req, res, next) => {
-  try {
-    await deleteShipment(req, res);
-    const io = req.app.get("io");
-    if (io) io.emit("shipmentsUpdated");
-  } catch (err) {
-    next(err);
-  }
-});
+// CRUD routes
+router.post(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  createShipment
+);
+router.get(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getShipments
+);
+router.get(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getShipmentById
+);
+router.put(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  updateShipment
+);
+router.delete(
+  "/:id",
+  protectAdmin,
+  authorizeRole("SuperAdmin"),
+  deleteShipment
+);
 
 module.exports = router;

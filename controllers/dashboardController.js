@@ -1,7 +1,5 @@
-// controllers/dashboardController.js
 const Shipment = require("../models/Shipment");
 
-// Get dashboard stats
 const getDashboardStats = async (req, res) => {
   try {
     const totalShipments = await Shipment.countDocuments();
@@ -10,9 +8,8 @@ const getDashboardStats = async (req, res) => {
     const pending = await Shipment.countDocuments({ status: "Pending" });
     const cancelled = await Shipment.countDocuments({ status: "Cancelled" });
 
-    const recentShipments = await Shipment.find()
-      .sort({ createdAt: -1 })
-      .limit(5);
+    // Remove limit → return all shipments
+    const recentShipments = await Shipment.find().sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -26,10 +23,11 @@ const getDashboardStats = async (req, res) => {
       recentShipments,
     });
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to load dashboard data" });
+    console.error("Dashboard Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load dashboard data",
+    });
   }
 };
 

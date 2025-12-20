@@ -1,71 +1,52 @@
-import User from "../models/User.js";
+const express = require("express");
+const {
+  registerUser,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+} = require("../controllers/userController");
 
-// Register new user
-export const registerUser = async (req, res) => {
-  try {
-    const newUser = await User.create(req.body);
+const {
+  protectAdmin,
+  authorizeRole,
+} = require("../middlewares/authMiddleware");
 
-    // Emit event for live dashboard updates
-    const io = req.app.get("io");
-    if (io) io.emit("usersUpdated");
+const router = express.Router();
 
-    res.status(201).json({ success: true, user: newUser });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to register user" });
-  }
-};
+// Create new user (Admin only)
+router.post(
+  "/",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  registerUser
+);
 
-// Get all users
-export const getUsers = async (req, res) => {
-  try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.json({ success: true, users });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch users" });
-  }
-};
+// Get all users (Admin only)
+router.get("/", protectAdmin, authorizeRole("Admin", "SuperAdmin"), getUsers);
 
-// Get user by ID
-export const getUserById = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+// Get single user by ID (Admin only)
+router.get(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  getUserById
+);
 
-// Update user
-export const updateUser = async (req, res) => {
-  try {
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    }).select("-password");
+// Update user (Admin only)
+router.put(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  updateUser
+);
 
-    // Emit event for live dashboard updates
-    const io = req.app.get("io");
-    if (io) io.emit("usersUpdated");
+// Delete user (Admin only)
+router.delete(
+  "/:id",
+  protectAdmin,
+  authorizeRole("Admin", "SuperAdmin"),
+  deleteUser
+);
 
-    res.json({ success: true, user: updatedUser });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to update user" });
-  }
-};
-
-// Delete user
-export const deleteUser = async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
-
-    // Emit event for live dashboard updates
-    const io = req.app.get("io");
-    if (io) io.emit("usersUpdated");
-
-    res.json({ success: true, message: "User deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to delete user" });
-  }
-};
+module.exports = router;

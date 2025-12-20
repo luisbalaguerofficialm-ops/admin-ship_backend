@@ -1,16 +1,18 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   createBranch,
   getBranches,
+  getBranchById,
   updateBranch,
   deleteBranch,
-} from "../controllers/branchController.js";
+} = require("../controllers/branchController");
 
 const router = express.Router();
 
 router.post("/", createBranch);
 router.get("/", getBranches);
+router.get("/:id", getBranchById);
 router.put("/:id", updateBranch);
 router.delete("/:id", deleteBranch);
 
-export default router;
+module.exports = router;

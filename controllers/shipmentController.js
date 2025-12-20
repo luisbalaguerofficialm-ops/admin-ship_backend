@@ -2,32 +2,42 @@ const Shipment = require("../models/Shipment");
 const emitDashboardStats = require("../utils/dashboardEmitter");
 
 /**
+ * Helper: emit real-time events and update dashboard
+ */
+const emitEvent = async (io, eventName, payload) => {
+  if (io) {
+    io.emit(eventName, payload);
+    await emitDashboardStats(io);
+    io.emit("dashboardUpdated");
+  }
+};
+
+/**
+ * Helper: standard response format
+ */
+const sendResponse = (res, status, success, message, data = {}) => {
+  return res.status(status).json({ success, message, ...data });
+};
+
+/**
  * @desc Create a new shipment
  * @route POST /api/shipments
  * @access Private (Admin or Super Admin)
  */
 exports.createShipment = async (req, res) => {
-  const io = req.app.get("io"); // Socket.IO instance
-
+  const io = req.app.get("io");
   try {
     const shipment = await Shipment.create({
       ...req.body,
       createdBy: req.user.id,
     });
 
-    // 🔥 Emit dashboard update
-    emitDashboardStats(io);
+    await emitEvent(io, "shipment:new", shipment);
 
-    res.status(201).json({
-      success: true,
-      message: "Shipment created successfully",
-      shipment,
-    });
+    sendResponse(res, 201, true, "Shipment created successfully", { shipment });
   } catch (err) {
     console.error("Create Shipment Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to create shipment" });
+    sendResponse(res, 500, false, "Failed to create shipment");
   }
 };
 
@@ -38,22 +48,18 @@ exports.createShipment = async (req, res) => {
  */
 exports.getShipments = async (req, res) => {
   try {
-    let query = {};
-
-    if (req.user.role !== "SuperAdmin") {
-      query = { createdBy: req.user.id };
-    }
-
+    const query =
+      req.user.role !== "SuperAdmin" ? { createdBy: req.user.id } : {};
     const shipments = await Shipment.find(query)
       .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, shipments });
+    sendResponse(res, 200, true, "Shipments fetched successfully", {
+      shipments,
+    });
   } catch (err) {
     console.error("Get Shipments Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch shipments" });
+    sendResponse(res, 500, false, "Failed to fetch shipments");
   }
 };
 
@@ -69,22 +75,20 @@ exports.getShipmentById = async (req, res) => {
       "name email role"
     );
 
-    if (!shipment)
-      return res.status(404).json({ message: "Shipment not found" });
+    if (!shipment) return sendResponse(res, 404, false, "Shipment not found");
 
+    // Access check
     if (
       req.user.role !== "SuperAdmin" &&
       shipment.createdBy._id.toString() !== req.user.id
     ) {
-      return res
-        .status(403)
-        .json({ message: "Access denied. Not your shipment." });
+      return sendResponse(res, 403, false, "Access denied. Not your shipment.");
     }
 
-    res.json({ success: true, shipment });
+    sendResponse(res, 200, true, "Shipment fetched successfully", { shipment });
   } catch (err) {
     console.error("Get Shipment Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    sendResponse(res, 500, false, "Server error");
   }
 };
 
@@ -95,40 +99,34 @@ exports.getShipmentById = async (req, res) => {
  */
 exports.updateShipment = async (req, res) => {
   const io = req.app.get("io");
-
   try {
     const shipment = await Shipment.findById(req.params.id);
-    if (!shipment)
-      return res.status(404).json({ message: "Shipment not found" });
+    if (!shipment) return sendResponse(res, 404, false, "Shipment not found");
 
+    // Access check
     if (
       req.user.role !== "SuperAdmin" &&
       shipment.createdBy.toString() !== req.user.id
     ) {
-      return res
-        .status(403)
-        .json({ message: "Access denied. You cannot update this shipment." });
+      return sendResponse(res, 403, false, "Access denied.");
     }
 
     const updatedShipment = await Shipment.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      {
+        new: true,
+      }
     );
 
-    // 🔥 Emit dashboard update
-    emitDashboardStats(io);
+    await emitEvent(io, "shipment:updated", updatedShipment);
 
-    res.json({
-      success: true,
-      message: "Shipment updated successfully",
+    sendResponse(res, 200, true, "Shipment updated successfully", {
       shipment: updatedShipment,
     });
   } catch (err) {
     console.error("Update Shipment Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update shipment" });
+    sendResponse(res, 500, false, "Failed to update shipment");
   }
 };
 
@@ -139,29 +137,20 @@ exports.updateShipment = async (req, res) => {
  */
 exports.deleteShipment = async (req, res) => {
   const io = req.app.get("io");
-
   try {
     if (req.user.role !== "SuperAdmin") {
-      return res
-        .status(403)
-        .json({ message: "Access denied. Super Admin only." });
+      return sendResponse(res, 403, false, "Access denied. Super Admin only.");
     }
 
     const deletedShipment = await Shipment.findByIdAndDelete(req.params.id);
     if (!deletedShipment)
-      return res.status(404).json({ message: "Shipment not found" });
+      return sendResponse(res, 404, false, "Shipment not found");
 
-    // 🔥 Emit dashboard update
-    emitDashboardStats(io);
+    await emitEvent(io, "shipment:deleted", deletedShipment._id);
 
-    res.json({
-      success: true,
-      message: "Shipment deleted successfully",
-    });
+    sendResponse(res, 200, true, "Shipment deleted successfully");
   } catch (err) {
     console.error("Delete Shipment Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to delete shipment" });
+    sendResponse(res, 500, false, "Failed to delete shipment");
   }
 };

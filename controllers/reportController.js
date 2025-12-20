@@ -1,36 +1,40 @@
-// controllers/reportController.js
-import Shipment from "../models/Shipment.js";
-import Payment from "../models/Payment.js";
+const Report = require("../models/Report");
 
-// Generate shipment report
-export const getShipmentReport = async (req, res) => {
+// Generate a new report
+const generateReport = async (req, res) => {
   try {
-    const report = await Shipment.aggregate([
-      {
-        $group: {
-          _id: "$deliveryStatus",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-    res.json({ success: true, report });
+    const { title, type, data } = req.body;
+
+    const report = await Report.create({
+      title,
+      type,
+      data,
+      generatedBy: req.user ? req.user._id : null,
+    });
+
+    const io = req.app.get("io");
+    if (io) io.emit("reportsUpdated"); // emit real-time update
+
+    res.status(201).json({ success: true, report });
   } catch (err) {
+    console.error("Generate Report Error:", err);
     res
       .status(500)
-      .json({ success: false, message: "Failed to generate shipment report" });
+      .json({ success: false, message: "Failed to generate report" });
   }
 };
 
-// Generate financial summary
-export const getFinancialReport = async (req, res) => {
+// Get all reports
+const getReports = async (req, res) => {
   try {
-    const totalRevenue = await Payment.aggregate([
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]);
-    res.json({ success: true, totalRevenue: totalRevenue[0]?.total || 0 });
+    const reports = await Report.find().sort({ createdAt: -1 });
+    res.json({ success: true, reports });
   } catch (err) {
+    console.error("Get Reports Error:", err);
     res
       .status(500)
-      .json({ success: false, message: "Failed to generate financial report" });
+      .json({ success: false, message: "Failed to fetch reports" });
   }
 };
+
+module.exports = { generateReport, getReports };

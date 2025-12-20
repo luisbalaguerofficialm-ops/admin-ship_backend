@@ -1,12 +1,22 @@
-import express from "express";
-import {
-  getSettings,
-  updateSettings,
-} from "../controllers/settingController.js";
+const express = require("express");
+const {
+  updateAdminEmail,
+  updateAdminPassword,
+  toggleNotifications,
+  toggleTwoFactor,
+  switchUser,
+  deactivateAccount,
+} = require("../controllers/settingController");
+
+const { protectAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", getSettings);
-router.put("/", updateSettings);
+router.put("/email", protectAdmin, updateAdminEmail);
+router.put("/password", protectAdmin, updateAdminPassword);
+router.put("/notifications", protectAdmin, toggleNotifications);
+router.put("/two-factor", protectAdmin, toggleTwoFactor);
+router.post("/switch-user", protectAdmin, switchUser);
+router.delete("/deactivate", protectAdmin, deactivateAccount);
 
-export default router;
+module.exports = router;

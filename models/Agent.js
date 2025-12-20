@@ -1,16 +1,13 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const agentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    email: String,
+    email: { type: String, required: true, unique: true },
     phone: String,
     branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
-    assignedShipments: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "Shipment" },
-    ],
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Agent", agentSchema);
+module.exports = mongoose.model("Agent", agentSchema);

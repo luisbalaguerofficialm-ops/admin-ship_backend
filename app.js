@@ -41,6 +41,17 @@ const shipmentRoutes = require("./routes/shipmentRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const authAdminRoutes = require("./routes/authAdminRoutes");
+const userRoutes = require("./routes/userRoutes");
+const customerRoutes = require("./routes/customerRoutes");
+const messageRoutes = require("./routes/messageRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const publicTrackingRoutes = require("./routes/publicTrackingRoutes");
+const auditRoutes = require("./routes/auditRoutes");
+const contentRoutes = require("./routes/contentRoutes");
+const settingRoutes = require("./routes/settingRoutes"); 
+const branchRoutes = require("./routes/branchRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 // ===== Default Route =====
 app.get("/", (req, res) => {
@@ -48,10 +59,21 @@ app.get("/", (req, res) => {
 });
 
 // ===== API Routes =====
+app.use("/api/users", userRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/shipments", shipmentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/auth", authAdminRoutes);
+app.use("/api/admin/auth", authAdminRoutes); // login/register/check-superadmin
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/track", publicTrackingRoutes);
+app.use("/api/audits", auditRoutes);
+app.use("/api/content", contentRoutes);
+app.use("/api/settings", settingRoutes);
+app.use("/api/branches", branchRoutes);
+app.use("/api/report", reportRoutes);
 
 // ===== 404 Fallback =====
 app.use((req, res) => {

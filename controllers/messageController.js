@@ -1,45 +1,144 @@
-// controllers/messageController.js
-import Message from "../models/Message.js";
+const Message = require("../models/Message");
+const emitDashboardUpdate = require("../utils/dashboardEmitter");
 
-export const sendMessage = async (req, res) => {
+// =====================================
+// SEND NEW MESSAGE
+// =====================================
+const sendMessage = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     const message = await Message.create(req.body);
-    res.status(201).json({ success: true, message });
+
+    // 🔔 Emit real-time message
+    if (io) {
+      io.emit("message:new", message);
+    }
+
+    // 🔥 Update dashboard instantly
+    if (io) {
+      await emitDashboardUpdate(io);
+      io.emit("dashboardUpdated");
+    }
+
+    res.status(201).json({
+      success: true,
+      message,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to send message" });
+    console.error("Send Message Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send message",
+    });
   }
 };
 
-export const getMessages = async (req, res) => {
+// =====================================
+// GET ALL MESSAGES
+// =====================================
+const getMessages = async (req, res) => {
   try {
     const messages = await Message.find().sort({ createdAt: -1 });
-    res.json({ success: true, messages });
+
+    res.status(200).json({
+      success: true,
+      messages,
+    });
   } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch messages" });
+    console.error("Get Messages Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch messages",
+    });
   }
 };
 
-export const markAsRead = async (req, res) => {
+// =====================================
+// MARK MESSAGE AS READ
+// =====================================
+const markAsRead = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
     const msg = await Message.findByIdAndUpdate(
       req.params.id,
-      { read: true },
+      { isRead: true }, // ✅ FIXED FIELD
       { new: true }
     );
-    res.json({ success: true, message: msg });
+
+    if (!msg) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    // 🔥 Update dashboard
+    if (io) {
+      await emitDashboardUpdate(io);
+      io.emit("dashboardUpdated");
+    }
+
+    res.status(200).json({
+      success: true,
+      message: msg,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to mark as read" });
+    console.error("Mark Message As Read Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to mark as read",
+    });
   }
 };
-export const deleteMessage = async (req, res) => {
+
+// =====================================
+// DELETE MESSAGE
+// =====================================
+const deleteMessage = async (req, res) => {
+  const io = req.app.get("io");
+
   try {
-    await Message.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Message deleted" });
+    const deleted = await Message.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    // 🔔 Emit real-time delete
+    if (io) {
+      io.emit("message:deleted", deleted._id);
+    }
+
+    // 🔥 Update dashboard
+    if (io) {
+      await emitDashboardUpdate(io);
+      io.emit("dashboardUpdated");
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted",
+    });
   } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to delete message" });
+    console.error("Delete Message Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete message",
+    });
   }
+};
+
+// =====================================
+// EXPORTS
+// =====================================
+module.exports = {
+  sendMessage,
+  getMessages,
+  markAsRead,
+  deleteMessage,
 };

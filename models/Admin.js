@@ -35,6 +35,16 @@ const adminSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    notifications: {
+      type: Boolean,
+      default: true,
+    },
+
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
     lastLogin: Date,
   },
   { timestamps: true }
