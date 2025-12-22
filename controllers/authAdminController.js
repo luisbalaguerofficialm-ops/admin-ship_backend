@@ -1,38 +1,29 @@
-// controllers/authAdminController.js
 const Admin = require("../models/Admin");
 const jwt = require("jsonwebtoken");
 
 /**
- * @desc Check if a SuperAdmin exists
- * @route GET /api/admin/check-superadmin
- * @access Public
+ * GET /api/admin/check-superadmin
+ * Public
  */
 const checkSuperAdmin = async (req, res) => {
   try {
     const exists = await Admin.exists({ role: "SuperAdmin" });
-    res.json({
-      success: true,
-      superAdminExists: !!exists,
-    });
+    res.json({ success: true, superAdminExists: !!exists });
   } catch (err) {
-    console.error("Check SuperAdmin Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to check SuperAdmin" });
+    res.status(500).json({ success: false });
   }
 };
 
 /**
- * @desc Register Admin
- * @route POST /api/admin/register
- * @access Public for first SuperAdmin, otherwise SuperAdmin only
+ * POST /api/admin/register
+ * Protected BUT bootstrap-safe
  */
 const registerAdmin = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     const adminCount = await Admin.countDocuments();
 
-    // First SuperAdmin (public)
+    // FIRST SUPERADMIN (bootstrap mode)
     if (adminCount === 0) {
       const superAdmin = await Admin.create({
         name,
@@ -40,10 +31,15 @@ const registerAdmin = async (req, res) => {
         password,
         role: "SuperAdmin",
       });
-      return res.status(201).json({ success: true, admin: superAdmin });
+
+      return res.status(201).json({
+        success: true,
+        message: "SuperAdmin created",
+        admin: superAdmin,
+      });
     }
 
-    // Only existing SuperAdmin can create admins after first
+    // AFTER bootstrap → must be SuperAdmin
     if (!req.user || req.user.role !== "SuperAdmin") {
       return res
         .status(403)
@@ -56,20 +52,14 @@ const registerAdmin = async (req, res) => {
       password,
       role: role || "Admin",
     });
+
     res.status(201).json({ success: true, admin });
   } catch (err) {
     console.error("Register Admin Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to register admin" });
+    res.status(500).json({ success: false });
   }
 };
 
-/**
- * @desc Login Admin
- * @route POST /api/admin/login
- * @access Public
- */
 const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -77,11 +67,14 @@ const loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email: email.toLowerCase() }).select(
       "+password"
     );
-    if (!admin) return res.status(401).json({ message: "Invalid credentials" });
+    if (!admin) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const isMatch = await admin.matchPassword(password);
-    if (!isMatch)
+    if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
@@ -91,8 +84,7 @@ const loginAdmin = async (req, res) => {
 
     res.json({ success: true, token, admin });
   } catch (err) {
-    console.error("Login Admin Error:", err);
-    res.status(500).json({ success: false, message: "Failed to login" });
+    res.status(500).json({ success: false });
   }
 };
 

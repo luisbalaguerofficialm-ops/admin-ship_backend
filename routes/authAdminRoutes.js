@@ -1,4 +1,3 @@
-// routes/authAdminRoutes.js
 const express = require("express");
 const router = express.Router();
 
@@ -10,28 +9,11 @@ const {
 
 const { protectAdmin } = require("../middlewares/authMiddleware");
 
-/* =====================================================
-   PUBLIC ROUTES (No Authentication Required)
-===================================================== */
-
-// Check if SuperAdmin exists (used for bootstrap UI)
+// PUBLIC
 router.get("/check-superadmin", checkSuperAdmin);
-
-// Login Admin
 router.post("/login", loginAdmin);
 
-/* =====================================================
-   MIXED ACCESS ROUTES
-   - Public if NO SuperAdmin exists
-   - Protected if SuperAdmin already exists
-===================================================== */
-
-// Register Admin
-// - Any other admin → SuperAdmin JWT required
+// ALWAYS PROTECTED (bootstrap-safe)
 router.post("/register", protectAdmin, registerAdmin);
-
-/* =====================================================
-   EXPORT
-===================================================== */
 
 module.exports = router;

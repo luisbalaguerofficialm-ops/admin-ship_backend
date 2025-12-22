@@ -1,73 +1,40 @@
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
-const User = require("../models/User");
 
-// Protect admin routes
-const protectAdmin = async (req, res, next) => {
+exports.protectAdmin = async (req, res, next) => {
   try {
+    // Check if any SuperAdmin exists
+    const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
+
+    //BOOTSTRAP MODE:
+    // If no SuperAdmin exists yet, allow request to continue
+    if (!superAdminExists) {
+      req.isBootstrap = true; // mark request
+      return next();
+    }
+
+    // Normal protected flow
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer "))
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res
         .status(401)
         .json({ success: false, message: "No token provided" });
+    }
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const admin = await Admin.findById(decoded.id).select("-password");
-    if (!admin)
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
       return res
         .status(401)
         .json({ success: false, message: "Admin not found" });
+    }
 
     req.user = admin;
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err.message);
-    res
-      .status(403)
-      .json({ success: false, message: "Invalid or expired token" });
+    console.error("ProtectAdmin Error:", err);
+    res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
-
-// Protect user routes
-const protectUser = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer "))
-      return res
-        .status(401)
-        .json({ success: false, message: "No token provided" });
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user)
-      return res
-        .status(401)
-        .json({ success: false, message: "User not found" });
-
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error("Auth middleware error:", err.message);
-    res
-      .status(403)
-      .json({ success: false, message: "Invalid or expired token" });
-  }
-};
-
-// Role-based authorization
-const authorizeRole =
-  (...allowedRoles) =>
-  (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied: insufficient role" });
-    }
-    next();
-  };
-
-module.exports = { protectAdmin, protectUser, authorizeRole };
