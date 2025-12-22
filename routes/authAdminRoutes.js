@@ -10,14 +10,28 @@ const {
 
 const { protectAdmin } = require("../middlewares/authMiddleware");
 
-// ===== Check if SuperAdmin exists (Public) =====
+/* =====================================================
+   PUBLIC ROUTES (No Authentication Required)
+===================================================== */
+
+// Check if SuperAdmin exists (used for bootstrap UI)
 router.get("/check-superadmin", checkSuperAdmin);
 
-// ===== Register Admin =====
-// First SuperAdmin (public) OR existing SuperAdmin (protected)
+// Login Admin
+router.post("/login", loginAdmin);
+
+/* =====================================================
+   MIXED ACCESS ROUTES
+   - Public if NO SuperAdmin exists
+   - Protected if SuperAdmin already exists
+===================================================== */
+
+// Register Admin
+// - Any other admin → SuperAdmin JWT required
 router.post("/register", protectAdmin, registerAdmin);
 
-// ===== Login Admin (Public) =====
-router.post("/login", loginAdmin);
+/* =====================================================
+   EXPORT
+===================================================== */
 
 module.exports = router;
