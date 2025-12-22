@@ -1,48 +1,9 @@
-const express = require("express");
-const router = express.Router();
+const router = require("express").Router();
+const { protectAdmin } = require("../middlewares/authMiddleware");
+const controller = require("../controllers/notificationController");
 
-const {
-  createNotification,
-  getNotifications,
-  markNotificationAsRead,
-  deleteNotification,
-} = require("../controllers/notificationController");
-
-const {
-  protectAdmin,
-  authorizeRole,
-} = require("../middlewares/authMiddleware");
-
-// Create notification
-router.post(
-  "/",
-  protectAdmin,
-  authorizeRole("Admin", "SuperAdmin"),
-  createNotification
-);
-
-// Get notifications
-router.get(
-  "/",
-  protectAdmin,
-  authorizeRole("Admin", "SuperAdmin"),
-  getNotifications
-);
-
-// Mark as read
-router.put(
-  "/:id/read",
-  protectAdmin,
-  authorizeRole("Admin", "SuperAdmin"),
-  markNotificationAsRead
-);
-
-// Delete notification
-router.delete(
-  "/:id",
-  protectAdmin,
-  authorizeRole("Admin", "SuperAdmin"),
-  deleteNotification
-);
+router.get("/", protectAdmin, controller.getNotifications);
+router.put("/:id/read", protectAdmin, controller.markNotificationAsRead);
+router.delete("/:id", protectAdmin, controller.deleteNotification);
 
 module.exports = router;

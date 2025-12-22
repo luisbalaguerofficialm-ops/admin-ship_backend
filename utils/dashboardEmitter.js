@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Customer = require("../models/Customer");
 const Payment = require("../models/Payment");
 const Notification = require("../models/Notification");
+ const Message = require("../models/Message");
 
 /**
  * Emit live dashboard stats via Socket.IO
@@ -22,6 +23,21 @@ const emitDashboardStats = async (io) => {
 
     // Users
     const totalUsers = await User.countDocuments();
+
+   
+
+const emitDashboardUpdate = async (io) => {
+  const unreadMessages = await Message.countDocuments({
+    isRead: false,
+  });
+
+  io.emit("dashboard:stats", {
+    unreadMessages,
+  });
+};
+
+module.exports = emitDashboardUpdate;
+
 
     // Customers
     const totalCustomers = await Customer.countDocuments();

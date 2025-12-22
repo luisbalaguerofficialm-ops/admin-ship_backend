@@ -1,5 +1,7 @@
 const Message = require("../models/Message");
 const emitDashboardUpdate = require("../utils/dashboardEmitter");
+const sendEmail = require("../utils/sendEmail");
+
 
 // =====================================
 // SEND NEW MESSAGE
@@ -131,6 +133,29 @@ const deleteMessage = async (req, res) => {
       message: "Failed to delete message",
     });
   }
+};
+
+
+
+// ===== REPLY TO MESSAGE =====
+exports.replyToMessage = async (req, res) => {
+  const { reply } = req.body;
+  const message = await Message.findById(req.params.id);
+
+  if (!message) return res.status(404).json({ message: "Message not found" });
+
+  await sendEmail({
+    to: message.senderEmail,
+    subject: `Re: ${message.subject}`,
+    html: `
+      <p>Hello ${message.senderName},</p>
+      <p>${reply}</p>
+      <br />
+      <p>Regards,<br/>Support Team</p>
+    `,
+  });
+
+  res.json({ success: true, message: "Reply sent successfully" });
 };
 
 // =====================================

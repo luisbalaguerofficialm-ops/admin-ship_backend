@@ -1,30 +1,42 @@
-// controllers/settingController.js
 const Admin = require("../models/Admin");
 const User = require("../models/User");
 const emitDashboardStats = require("../utils/dashboardEmitter");
 const bcrypt = require("bcryptjs");
 
-// Update admin email
+// Get Admin settings
+const getAdminSettings = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.user.id).select("-password");
+    res.json({ success: true, admin });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch settings" });
+  }
+};
+
+// Update email
 const updateAdminEmail = async (req, res) => {
   try {
     const { email } = req.body;
-    const updatedAdmin = await Admin.findByIdAndUpdate(
+    const admin = await Admin.findByIdAndUpdate(
       req.user.id,
       { email },
       { new: true }
     ).select("-password");
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated", { email });
 
-    res.json({ success: true, admin: updatedAdmin });
+    res.json({ success: true, admin });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to update email" });
   }
 };
 
-// Update admin password
+// Update password
 const updateAdminPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -32,14 +44,13 @@ const updateAdminPassword = async (req, res) => {
 
     const isMatch = await bcrypt.compare(currentPassword, admin.password);
     if (!isMatch)
-      return res.status(400).json({ message: "Current password is incorrect" });
+      return res.status(400).json({ message: "Current password incorrect" });
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-    admin.password = hashed;
+    admin.password = await bcrypt.hash(newPassword, 10);
     await admin.save();
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated");
 
     res.json({ success: true, message: "Password updated successfully" });
   } catch (err) {
@@ -58,7 +69,7 @@ const toggleNotifications = async (req, res) => {
     await admin.save();
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated", { notifications: admin.notifications });
 
     res.json({ success: true, notifications: admin.notifications });
   } catch (err) {
@@ -77,7 +88,7 @@ const toggleTwoFactor = async (req, res) => {
     await admin.save();
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated", { twoFactor: admin.twoFactorEnabled });
 
     res.json({ success: true, twoFactor: admin.twoFactorEnabled });
   } catch (err) {
@@ -96,7 +107,7 @@ const switchUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated", { switchedUser: email });
 
     res.json({ success: true, message: `Switched to user ${email}`, user });
   } catch (err) {
@@ -111,7 +122,7 @@ const deactivateAccount = async (req, res) => {
     await Admin.findByIdAndDelete(req.user.id);
 
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("settingsUpdated", { deactivated: true });
 
     res.json({ success: true, message: "Admin account deactivated" });
   } catch (err) {
@@ -123,6 +134,7 @@ const deactivateAccount = async (req, res) => {
 };
 
 module.exports = {
+  getAdminSettings,
   updateAdminEmail,
   updateAdminPassword,
   toggleNotifications,

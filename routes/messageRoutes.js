@@ -37,6 +37,9 @@ router.put(
   markAsRead
 );
 
+
+
+
 // Delete message
 router.delete(
   "/:id",

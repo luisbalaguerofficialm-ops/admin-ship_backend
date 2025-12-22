@@ -1,19 +1,24 @@
 const Report = require("../models/Report");
 
-// Generate a new report
+// ===== GENERATE NEW REPORT =====
 const generateReport = async (req, res) => {
   try {
-    const { title, type, data } = req.body;
+    const { title, data } = req.body;
+    if (!title || !data) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Title and data are required" });
+    }
 
     const report = await Report.create({
       title,
-      type,
       data,
       generatedBy: req.user ? req.user._id : null,
     });
 
+    // Emit real-time update to all connected clients
     const io = req.app.get("io");
-    if (io) io.emit("reportsUpdated"); // emit real-time update
+    if (io) io.emit("reportsUpdated", report);
 
     res.status(201).json({ success: true, report });
   } catch (err) {
@@ -24,7 +29,7 @@ const generateReport = async (req, res) => {
   }
 };
 
-// Get all reports
+// ===== GET ALL REPORTS =====
 const getReports = async (req, res) => {
   try {
     const reports = await Report.find().sort({ createdAt: -1 });

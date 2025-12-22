@@ -1,6 +1,7 @@
 const Payment = require("../models/Payment");
 const Shipment = require("../models/Shipment");
 const emitDashboardStats = require("../utils/dashboardEmitter");
+const sendPaymentReceipt = require("../utils/sendPaymentReceipt");
 
 // ===== RECORD NEW PAYMENT =====
 const createPayment = async (req, res) => {
@@ -17,9 +18,22 @@ const createPayment = async (req, res) => {
       });
     }
 
-    // 🔥 Emit dashboard update
+    // Auto-send email receipt if email exists
+    if (payment.email) {
+      await sendPaymentReceipt({
+        email: payment.email,
+        payer: payment.payer,
+        amount: payment.amount,
+        currency: payment.currency,
+        method: payment.method,
+        date: payment.date,
+        id: payment._id,
+      });
+    }
+
+    // 🔥 Emit real-time dashboard update
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("paymentsUpdated");
 
     res.status(201).json({ success: true, payment });
   } catch (err) {
@@ -51,7 +65,10 @@ const getPaymentById = async (req, res) => {
     const payment = await Payment.findById(req.params.id).populate(
       "shipmentId"
     );
-    if (!payment) return res.status(404).json({ message: "Payment not found" });
+    if (!payment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Payment not found" });
     res.json({ success: true, payment });
   } catch (err) {
     console.error("Get Payment By ID Error:", err);
@@ -66,9 +83,8 @@ const updatePayment = async (req, res) => {
       new: true,
     });
 
-    // 🔥 Emit dashboard update
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("paymentsUpdated");
 
     res.json({ success: true, payment: updated });
   } catch (err) {
@@ -83,12 +99,13 @@ const updatePayment = async (req, res) => {
 const deletePayment = async (req, res) => {
   try {
     const deleted = await Payment.findByIdAndDelete(req.params.id);
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ success: false, message: "Payment not found" });
 
-    if (!deleted) return res.status(404).json({ message: "Payment not found" });
-
-    // 🔥 Emit dashboard update
     const io = req.app.get("io");
-    if (io) await emitDashboardStats(io);
+    if (io) io.emit("paymentsUpdated");
 
     res.json({ success: true, message: "Payment deleted successfully" });
   } catch (err) {

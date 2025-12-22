@@ -1,17 +1,28 @@
 const Notification = require("../models/Notification");
 const emitDashboardUpdate = require("../utils/dashboardEmitter");
 
-// ===== CREATE NOTIFICATION =====
+/**
+ * CREATE NOTIFICATION
+ * Used internally (shipments, payments, etc.)
+ */
 const createNotification = async (req, res) => {
   const io = req.app.get("io");
 
   try {
-    const notification = await Notification.create(req.body);
+    const { user, message, type = "info" } = req.body;
 
-    // 🔔 Emit real-time notification
-    if (io) io.emit("notification:new", notification);
+    const notification = await Notification.create({
+      user,
+      message,
+      type,
+    });
 
-    // 🔥 Update dashboard instantly
+    // 🔔 Emit only to target user
+    if (io && user) {
+      io.to(user.toString()).emit("notification:new", notification);
+    }
+
+    // 🔥 Update dashboard stats
     if (io) {
       await emitDashboardUpdate(io);
       io.emit("dashboardUpdated");
@@ -26,11 +37,22 @@ const createNotification = async (req, res) => {
   }
 };
 
-// ===== GET ALL NOTIFICATIONS =====
+/**
+ * GET USER NOTIFICATIONS
+ */
 const getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find().sort({ createdAt: -1 });
-    res.json({ success: true, notifications });
+    const notifications = await Notification.find({
+      user: req.user._id,
+    }).sort({ createdAt: -1 });
+
+    const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+    res.json({
+      success: true,
+      unreadCount,
+      notifications,
+    });
   } catch (err) {
     console.error("Get Notifications Error:", err);
     res
@@ -39,18 +61,22 @@ const getNotifications = async (req, res) => {
   }
 };
 
-// ===== MARK NOTIFICATION AS READ =====
+/**
+ * MARK AS READ
+ */
 const markNotificationAsRead = async (req, res) => {
   const io = req.app.get("io");
 
   try {
-    const updated = await Notification.findByIdAndUpdate(
-      req.params.id,
-      { read: true },
+    const updated = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { isRead: true },
       { new: true }
     );
 
-    // 🔥 Update dashboard unread count
+    if (!updated)
+      return res.status(404).json({ success: false, message: "Not found" });
+
     if (io) {
       await emitDashboardUpdate(io);
       io.emit("dashboardUpdated");
@@ -58,21 +84,26 @@ const markNotificationAsRead = async (req, res) => {
 
     res.json({ success: true, notification: updated });
   } catch (err) {
-    console.error("Mark Notification As Read Error:", err);
+    console.error("Mark Read Error:", err);
     res.status(500).json({ success: false, message: "Failed to mark as read" });
   }
 };
 
-// ===== DELETE NOTIFICATION =====
+/**
+ * DELETE NOTIFICATION
+ */
 const deleteNotification = async (req, res) => {
   const io = req.app.get("io");
 
   try {
-    const deleted = await Notification.findByIdAndDelete(req.params.id);
-    if (!deleted)
-      return res.status(404).json({ message: "Notification not found" });
+    const deleted = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id,
+    });
 
-    // 🔥 Refresh dashboard after deletion
+    if (!deleted)
+      return res.status(404).json({ success: false, message: "Not found" });
+
     if (io) {
       await emitDashboardUpdate(io);
       io.emit("dashboardUpdated");
