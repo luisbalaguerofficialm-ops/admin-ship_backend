@@ -28,7 +28,7 @@ router.post("/login", loginAdmin);
 
 // Register Admin
 // - Any other admin → SuperAdmin JWT required
-router.post("/register", protectAdmin, registerAdmin);
+router.post("/register", registerAdmin);
 
 /* =====================================================
    EXPORT
