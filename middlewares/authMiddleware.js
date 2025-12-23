@@ -1,24 +1,24 @@
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
 
+// ===============================
+// PROTECT ADMIN (AUTH)
+// ===============================
 exports.protectAdmin = async (req, res, next) => {
   try {
-    // Check if any SuperAdmin exists
     const superAdminExists = await Admin.exists({ role: "SuperAdmin" });
 
-    //BOOTSTRAP MODE:
-    // If no SuperAdmin exists yet, allow request to continue
+    // Bootstrap mode (first SuperAdmin)
     if (!superAdminExists) {
-      req.isBootstrap = true; // mark request
       return next();
     }
 
-    // Normal protected flow
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res
-        .status(401)
-        .json({ success: false, message: "No token provided" });
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
     }
 
     const token = authHeader.split(" ")[1];
@@ -26,15 +26,34 @@ exports.protectAdmin = async (req, res, next) => {
 
     const admin = await Admin.findById(decoded.id);
     if (!admin) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Admin not found" });
+      return res.status(401).json({
+        success: false,
+        message: "Admin not found",
+      });
     }
 
     req.user = admin;
     next();
   } catch (err) {
     console.error("ProtectAdmin Error:", err);
-    res.status(401).json({ success: false, message: "Invalid token" });
+    res.status(401).json({
+      success: false,
+      message: "Invalid token",
+    });
   }
+};
+
+// ===============================
+// AUTHORIZE ROLE (RBAC)
+// ===============================
+exports.authorizeRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+    next();
+  };
 };

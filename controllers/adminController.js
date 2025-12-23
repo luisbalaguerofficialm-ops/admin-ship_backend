@@ -1,3 +1,4 @@
+// controllers/adminController.js
 const Admin = require("../models/Admin");
 const Shipment = require("../models/Shipment");
 const Payment = require("../models/Payment");
@@ -6,85 +7,95 @@ const Customer = require("../models/Customer");
 const Notification = require("../models/Notification");
 const emitDashboardUpdate = require("../utils/dashboardEmitter");
 
-// ===== GET ALL ADMINS =====
-const getAdmins = async (req, res) => {
+/* =========================
+   ADMINS
+========================= */
+exports.getAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select("-password");
-    res.status(200).json({ success: true, admins });
-  } catch (error) {
-    console.error("Get Admins Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ success: true, admins });
+  } catch (err) {
+    console.error("Get Admins Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== GET ADMIN BY ID =====
-const getAdminById = async (req, res) => {
+exports.getAdminById = async (req, res) => {
   try {
     const admin = await Admin.findById(req.params.id).select("-password");
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
-
-    res.status(200).json({ success: true, admin });
-  } catch (error) {
-    console.error("Get Admin by ID Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    if (!admin) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Admin not found" });
+    }
+    res.json({ success: true, admin });
+  } catch (err) {
+    console.error("Get Admin Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== UPDATE ADMIN =====
-const updateAdmin = async (req, res) => {
+exports.updateAdmin = async (req, res) => {
   try {
-    const updatedAdmin = await Admin.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    ).select("-password");
+    const admin = await Admin.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    }).select("-password");
 
-    if (!updatedAdmin)
-      return res.status(404).json({ message: "Admin not found" });
+    if (!admin) {
+      return res.status(404).json({ success: false });
+    }
 
     const io = req.app.get("io");
     if (io) await emitDashboardUpdate(io);
 
-    res.json({
-      success: true,
-      message: "Admin updated successfully",
-      admin: updatedAdmin,
-    });
-  } catch (error) {
-    console.error("Update Admin Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ success: true, admin });
+  } catch (err) {
+    console.error("Update Admin Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== DELETE ADMIN =====
-const deleteAdmin = async (req, res) => {
+exports.deleteAdmin = async (req, res) => {
   try {
-    const deletedAdmin = await Admin.findByIdAndDelete(req.params.id);
-    if (!deletedAdmin)
-      return res.status(404).json({ message: "Admin not found" });
+    const admin = await Admin.findByIdAndDelete(req.params.id);
+    if (!admin) {
+      return res.status(404).json({ success: false });
+    }
 
     const io = req.app.get("io");
     if (io) await emitDashboardUpdate(io);
 
-    res.json({ success: true, message: "Admin deleted successfully" });
-  } catch (error) {
-    console.error("Delete Admin Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ success: true, message: "Admin deleted" });
+  } catch (err) {
+    console.error("Delete Admin Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== DASHBOARD STATS =====
-const getDashboardStats = async (req, res) => {
+/* =========================
+   DASHBOARD
+========================= */
+exports.getDashboardStats = async (req, res) => {
   try {
-    const totalShipments = await Shipment.countDocuments();
-    const delivered = await Shipment.countDocuments({ status: "Delivered" });
-    const inTransit = await Shipment.countDocuments({ status: "In Transit" });
-    const pending = await Shipment.countDocuments({ status: "Pending" });
-    const cancelled = await Shipment.countDocuments({ status: "Cancelled" });
-
-    const totalUsers = await User.countDocuments();
-    const totalCustomers = await Customer.countDocuments();
-    const totalPayments = await Payment.countDocuments();
+    const [
+      totalShipments,
+      delivered,
+      inTransit,
+      pending,
+      cancelled,
+      totalUsers,
+      totalCustomers,
+      totalPayments,
+    ] = await Promise.all([
+      Shipment.countDocuments(),
+      Shipment.countDocuments({ status: "Delivered" }),
+      Shipment.countDocuments({ status: "In Transit" }),
+      Shipment.countDocuments({ status: "Pending" }),
+      Shipment.countDocuments({ status: "Cancelled" }),
+      User.countDocuments(),
+      Customer.countDocuments(),
+      Payment.countDocuments(),
+    ]);
 
     const recentShipments = await Shipment.find().sort({ createdAt: -1 });
     const recentPayments = await Payment.find().sort({ createdAt: -1 });
@@ -107,25 +118,25 @@ const getDashboardStats = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Dashboard Stats Error:", err);
-    res.status(500).json({ success: false, message: "Dashboard error" });
+    console.error("Dashboard Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== ADMIN PROFILE =====
-const getAdminProfile = async (req, res) => {
+/* =========================
+   PROFILE
+========================= */
+exports.getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.id).select("-password");
     res.json({ success: true, admin });
   } catch (err) {
-    console.error("Get Admin Profile Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch profile" });
+    console.error("Profile Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-const updateAdminProfile = async (req, res) => {
+exports.updateAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findByIdAndUpdate(req.user.id, req.body, {
       new: true,
@@ -136,33 +147,20 @@ const updateAdminProfile = async (req, res) => {
 
     res.json({ success: true, admin });
   } catch (err) {
-    console.error("Update Admin Profile Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update profile" });
+    console.error("Update Profile Error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-// ===== NOTIFICATIONS =====
-const getAdminNotifications = async (req, res) => {
+/* =========================
+   NOTIFICATIONS
+========================= */
+exports.getAdminNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find().sort({ createdAt: -1 });
     res.json({ success: true, notifications });
   } catch (err) {
-    console.error("Get Admin Notifications Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch notifications" });
+    console.error("Notifications Error:", err);
+    res.status(500).json({ success: false });
   }
-};
-
-module.exports = {
-  getAdmins,
-  getAdminById,
-  updateAdmin,
-  deleteAdmin,
-  getDashboardStats,
-  getAdminProfile,
-  updateAdminProfile,
-  getAdminNotifications,
 };
